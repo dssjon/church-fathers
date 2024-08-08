@@ -11,7 +11,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 from langchain.embeddings import HuggingFaceInstructEmbeddings, HuggingFaceBgeEmbeddings
 
-# Derived from https://github.com/HistoricalChristianFaith/Commentaries-Database
+# Original SQL data sources: https://github.com/HistoricalChristianFaith/Commentaries-Database
 
 def sanitize_filename(filename):
     # Remove or replace characters that are invalid in filenames

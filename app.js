@@ -12,6 +12,7 @@ let commentaryData = {};
 let pipe;
 let searchResults = [];
 let db;
+let isLoading = false;
 
 const updateElement = (id, content) => (document.getElementById(id).textContent = content);
 const updateStatus = (message) => { updateElement("status", message); console.log(message); };
@@ -36,34 +37,34 @@ const createCheckbox = (label, value, checked) => {
 };
 
 const populateMultiSelect = (elementId, options, defaultChecked = true) => {
-    const container = document.getElementById(elementId);
-    const optionsDiv = document.createElement("div");
-    optionsDiv.className = "hidden mt-2";
-    optionsDiv.innerHTML = `
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-xs text-gray-500">0 selected</span>
-        <button class="text-xs text-blue-500 toggle-all">Toggle All</button>
+  const container = document.getElementById(elementId);
+  const optionsDiv = document.createElement("div");
+  optionsDiv.className = "hidden mt-2";
+  optionsDiv.innerHTML = `
+    <div class="flex justify-between items-center mb-2">
+      <span class="text-xs text-gray-500">0 selected</span>
+      <button class="text-xs text-blue-500 toggle-all">Toggle All</button>
+    </div>
+    <div class="max-h-32 overflow-y-auto text-sm"></div>
+  `;
+  const checkboxesContainer = optionsDiv.querySelector(".max-h-32");
+  options.forEach((option) => {
+    const isChecked = defaultChecked;
+    checkboxesContainer.appendChild(createCheckbox(option, option.replace(/ /g, "_"), isChecked));
+  });
+  container.innerHTML = `
+    <div class="border rounded bg-gray-50 p-2">
+      <div class="flex justify-between items-center cursor-pointer">
+        <span class="font-bold text-sm">Select ${elementId === "bookMultiSelect" ? "Books" : "Church Fathers"}</span>
+        <span class="transform transition-transform duration-200">▼</span>
       </div>
-      <div class="max-h-32 overflow-y-auto text-sm"></div>
-    `;
-    const checkboxesContainer = optionsDiv.querySelector(".max-h-32");
-    options.forEach((option) => {
-      const isChecked = defaultChecked;
-      checkboxesContainer.appendChild(createCheckbox(option, option.replace(/ /g, "_"), isChecked));
-    });
-    container.innerHTML = `
-      <div class="border rounded bg-gray-50 p-2">
-        <div class="flex justify-between items-center cursor-pointer">
-          <span class="font-bold text-sm">Select ${elementId === "bookMultiSelect" ? "Books" : "Church Fathers"}</span>
-          <span class="transform transition-transform duration-200">▼</span>
-        </div>
-      </div>
-    `;
-    container.querySelector(".border").appendChild(optionsDiv);
-    container.querySelector(".flex").addEventListener("click", () => toggleExpand(optionsDiv));
-    container.querySelector(".toggle-all").addEventListener("click", () => toggleAll(optionsDiv));
-    updateSelectedCount(elementId);
-  };
+    </div>
+  `;
+  container.querySelector(".border").appendChild(optionsDiv);
+  container.querySelector(".flex").addEventListener("click", () => toggleExpand(optionsDiv));
+  container.querySelector(".toggle-all").addEventListener("click", () => toggleAll(optionsDiv));
+  updateSelectedCount(elementId);
+};
 
 const toggleExpand = (optionsDiv) => {
   const isHidden = optionsDiv.classList.contains("hidden");
@@ -121,14 +122,11 @@ const saveToStorage = async (key, value) => {
     await db.put('commentaryStore', value, key);
   } catch (error) {
     console.error("Error saving to IndexedDB:", error);
-    // If IndexedDB fails, try localStorage as a fallback
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (localStorageError) {
       console.error("Error saving to localStorage:", localStorageError);
-      // If both fail, we might need to clear some data
       await clearOldestData();
-      // Try saving again after clearing
       await db.put('commentaryStore', value, key);
     }
   }
@@ -140,7 +138,6 @@ const getFromStorage = async (key) => {
     return value;
   } catch (error) {
     console.error("Error retrieving from IndexedDB:", error);
-    // If IndexedDB fails, try localStorage as a fallback
     const item = localStorage.getItem(key);
     return item ? JSON.parse(item) : null;
   }
@@ -149,8 +146,6 @@ const getFromStorage = async (key) => {
 const clearOldestData = async () => {
   const allKeys = await db.getAllKeys('commentaryStore');
   if (allKeys.length > 0) {
-    // This is a simple strategy: remove the first key (assumed to be the oldest)
-    // You might want to implement a more sophisticated strategy based on your needs
     await db.delete('commentaryStore', allKeys[0]);
   }
 };
@@ -247,9 +242,9 @@ const displayResults = (results) => {
     resultInfoDiv.style.display = "block";
     results.forEach((result) => {
       const resultDiv = document.createElement("div");
-      resultDiv.className = "bg-white p-4 rounded shadow";
+      resultDiv.className = "search-result bg-light-wheat p-4 rounded shadow mb-4";
       resultDiv.innerHTML = `
-        <h2 class="text-lg font-bold">${result.father_name}</h2>
+        <h2 class="text-xl font-bold">${result.father_name}</h2>
         <p class="text-sm text-gray-600 mb-2">Source: ${result.source_title}, Book: ${result.book.charAt(0).toUpperCase() + result.book.slice(1)}</p>
         <p class="mt-2 text-sm">${result.content}</p>
         <p class="text-xs text-gray-600 mt-2">Similarity: ${result.similarity.toFixed(4)}</p>
@@ -297,11 +292,71 @@ const displaySummary = (summary) => {
   }
 };
 
+const setButtonLoading = (loading, text = "Searching") => {
+  const button = document.getElementById("searchButton");
+  const buttonText = button.querySelector("span");
+
+  if (loading) {
+    button.disabled = true;
+    buttonText.textContent = text;
+    if (!button.querySelector(".spinner")) {
+      button.insertAdjacentHTML('afterbegin', '<div class="spinner"></div>');
+    }
+  } else {
+    button.disabled = false;
+    buttonText.textContent = "Search";
+    const spinner = button.querySelector(".spinner");
+    if (spinner) spinner.remove();
+  }
+
+  isLoading = loading;
+};
+
 const getRandomSearchSuggestion = () => {
   const suggestions = [
-    "The nature of Christ", "Relationship between faith and reason", "Teachings on the Eucharist", "Biblical interpretation", "Prayer and spiritual disciplines", "Concept of the Trinity"
+    "The nature of Christ",
+    "Relationship between faith and reason",
+    "Teachings on the Eucharist",
+    "Biblical interpretation",
+    "Prayer and spiritual disciplines",
+    "Concept of the Trinity"
   ];
   return suggestions[Math.floor(Math.random() * suggestions.length)];
+};
+
+const performSearch = async () => {
+  if (isLoading) return;
+
+  setButtonLoading(true);
+  let query = document.getElementById("searchInput").value;
+
+  if (!query.trim()) {
+    query = document.getElementById("searchInput").placeholder;
+    document.getElementById("searchInput").value = query;
+  }
+
+  const selectedBooks = getSelectedItems("bookMultiSelect");
+  const selectedFathers = getSelectedItems("fatherMultiSelect");
+  console.log(`Searching for: "${query}" in books: ${selectedBooks.join(", ")}, fathers: ${selectedFathers.join(", ")}`);
+
+  try {
+    await loadCommentaryData(selectedBooks);
+    searchResults = await searchCommentary(query, selectedBooks);
+    console.log(`Found ${searchResults.length} results`);
+
+    displayResults(searchResults.slice(0, 4));
+
+    if (document.getElementById("enableSummary").checked) {
+      setButtonLoading(true, "Summarizing");
+      const summary = await getSummary(query, searchResults.slice(0, 4));
+      displaySummary(summary);
+    }
+  } catch (error) {
+    console.error("Error during search:", error);
+    updateStatus("Error during search. Check console for details.");
+  } finally {
+    setButtonLoading(false);
+  }
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -310,32 +365,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   populateMultiSelect("bookMultiSelect", BOOKS, true);
   populateMultiSelect("fatherMultiSelect", FATHERS, true);
 
-  document.getElementById("searchButton").addEventListener("click", async () => {
-    let query = document.getElementById("searchInput").value;
-
-    if (!query.trim()) {
-      query = document.getElementById("searchInput").placeholder;
-      document.getElementById("searchInput").value = query;
-    }
-  
-    const selectedBooks = getSelectedItems("bookMultiSelect");
-    const selectedFathers = getSelectedItems("fatherMultiSelect");
-    console.log(`Searching for: "${query}" in books: ${selectedBooks.join(", ")}, fathers: ${selectedFathers.join(", ")}`);
-    
-    try {
-      await loadCommentaryData(selectedBooks);
-      searchResults = await searchCommentary(query, selectedBooks);
-      console.log(`Found ${searchResults.length} results`);
-      
-      displayResults(searchResults.slice(0, 4));
-  
-      const summary = await getSummary(query, searchResults.slice(0, 4));
-      displaySummary(summary);
-    } catch (error) {
-      console.error("Error during search:", error);
-      updateStatus("Error during search. Check console for details.");
-    }
-  });
+  document.getElementById("searchButton").addEventListener("click", performSearch);
 });
 
 // Initialize the model

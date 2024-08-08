@@ -1,4 +1,4 @@
-# Church Fathers Commentary Search
+# Church Fathers Commentary Semantic Search & Summarize
 
 This application provides a semantic search interface for exploring commentaries from early Church Fathers on New Testament books. It uses embedding-based search to find relevant passages based on user queries.
 

@@ -67,14 +67,23 @@ const populateMultiSelect = (elementId, options, defaultChecked = true) => {
 };
 
 const toggleExpand = (optionsDiv) => {
-  const isHidden = optionsDiv.classList.contains("hidden");
-  document.querySelectorAll(".multi-select .hidden").forEach((div) => div.classList.remove("hidden"));
-  document.querySelectorAll(".multi-select span:last-child").forEach((span) => (span.style.transform = "rotate(0deg)"));
-  if (isHidden) {
-    optionsDiv.classList.remove("hidden");
-    optionsDiv.previousElementSibling.querySelector("span:last-child").style.transform = "rotate(180deg)";
-  }
-};
+    const isHidden = optionsDiv.classList.contains("hidden");
+    
+    document.querySelectorAll(".multi-select .hidden").forEach((div) => {
+      if (div !== optionsDiv) {
+        div.classList.add("hidden");
+        div.previousElementSibling.querySelector("span:last-child").style.transform = "rotate(0deg)";
+      }
+    });
+  
+    if (isHidden) {
+      optionsDiv.classList.remove("hidden");
+      optionsDiv.previousElementSibling.querySelector("span:last-child").style.transform = "rotate(180deg)";
+    } else {
+      optionsDiv.classList.add("hidden");
+      optionsDiv.previousElementSibling.querySelector("span:last-child").style.transform = "rotate(0deg)";
+    }
+  };
 
 const toggleAll = (optionsDiv) => {
   const checkboxes = optionsDiv.querySelectorAll('input[type="checkbox"]');

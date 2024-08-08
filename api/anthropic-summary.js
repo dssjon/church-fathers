@@ -20,26 +20,23 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "searchResults must be an array" });
   }
 
-  const prompt = `You are an expert church historian with a talent for explaining complex theological concepts in simple terms. Please provide an accessible summary of the following search results for the query "${query}" from Church Fathers' commentaries:
+  const prompt = `You are an expert church historian specializing in the writings of the Church Fathers. You have a talent for explaining complex theological concepts in simple terms. A user has searched for "${query}" and here are the top results from Church Fathers' commentaries:
 
 ${searchResults
-  .slice(0, 4)
+  .slice(0, 4) 
   .map(
     (result) => `
-- ${result.father_name} (${result.source_title}, Book of ${
+- **${result.father_name}** (*${result.source_title}*, Book of ${
       result.book
-    }): "${result.content.substring(0, 100)}..."`
+    }): "${result.content}..."`
   )
   .join("\n")}
 
-In your summary:
-1. Explain the main ideas and teachings in simple, modern language.
-2. Highlight how these teachings might apply to everyday life today.
-3. Briefly mention any interesting historical context that helps understand the fathers' perspectives.
-4. Include the names of the church fathers, their sources, and which biblical books they were commenting on.
-5. If there are differences in views among the fathers, note them briefly.
+Please provide a concise and insightful summary of these search results, considering the following:
 
-Aim for a concise, engaging summary that someone with little background in theology could understand and find relevant.`;
+* **Explain the core theological concepts related to "${query}" as discussed by these Fathers.** 
+
+Use clear, modern language accessible to someone with limited theological background. Your goal is to help the user understand the Church Fathers' thinking by providing insightful analysis of the provided excerpts.`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -51,8 +48,8 @@ Aim for a concise, engaging summary that someone with little background in theol
       },
       body: JSON.stringify({
         model: "claude-3-5-sonnet-20240620",
-        max_tokens: 750,
-        temperature: 0.5,
+        max_tokens: 500, 
+        temperature: 0.1,
         messages: [
           {
             role: "user",
